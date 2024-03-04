@@ -1,0 +1,109 @@
+---
+title: "Data Science Capstone Peer-graded Assignment: Milestone Report"
+author: "Shubham Kumar Chaturvedi"
+date: "04-03-2024"
+---
+
+### Introduction
+
+The goal of the capstone project is to create a predictive text model using a large text corpus of documents as training data. Natural language processing techniques will be used to perform the analysis.
+
+### Loading (Blogs, News, Twitter)
+
+```{r}
+if (!dir.exists("data")) {
+    url <- "https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip"
+    if (!file.exists("Coursera-SwiftKey.zip")) { 
+        download.file(url, destfile = "Coursera-SwiftKey.zip", method = "curl")
+        unzip("Coursera-SwiftKey.zip")
+    }
+}
+news <- readLines("final/en_US/en_US.news.txt", warn = FALSE, skipNul = TRUE)
+twitter <- readLines("final/en_US/en_US.twitter.txt", skipNul = TRUE)
+blogs <- readLines("final/en_US/en_US.blogs.txt", skipNul = TRUE)
+```
+
+### Exploratory Analysis (Graphs & Visualizations)
+
+```{r}
+library(stringi)
+data.table <- matrix(0, nrow = 3, ncol = 2, dimnames = list(c("twitter", "blogs", "news"),c("lines", "words")))
+
+twitter_num_lines <- length(twitter)
+blogs_num_lines <- length(blogs)
+news_num_lines <- length(news)
+
+twitter_num_words <- sum(stri_count_words(twitter))
+blogs_num_words <- sum(stri_count_words(blogs))
+news_num_words <- sum(stri_count_words(news))
+
+data.table[1,1] <- twitter_num_lines
+data.table[1,2] <- twitter_num_words
+
+data.table[2,1] <- blogs_num_lines
+data.table[2,2] <- blogs_num_words
+
+data.table[3,1] <- news_num_lines
+data.table[3,2] <- news_num_words
+```
+
+```{r}
+library(knitr)
+kable(data.table)
+```
+
+```{r}
+set.seed(1)
+sample_data <- c(sample(blogs, length(blogs)*0.01),sample(news, length(news)*0.01),sample(twitter, length(twitter)*0.01))
+
+rm(blogs, news, twitter)
+
+library(tm)
+
+text_corpus <- VCorpus(VectorSource(sample_data))
+
+text_corpus <- tm_map(text_corpus, content_transformer(tolower)) #trasform the text in lowercase characters
+text_corpus <- tm_map(text_corpus, removePunctuation) #remove the punctuation
+text_corpus <- tm_map(text_corpus, removeNumbers) #remove all the numbers
+text_corpus <- tm_map(text_corpus, removeWords, stopwords("english")) #remove the stopwords
+text_corpus <- tm_map(text_corpus, stripWhitespace) #remove the whitespaces
+```
+
+```{r}
+library(ggplot2)
+
+onegram_tdm <- TermDocumentMatrix(text_corpus)
+
+freq <- sort(rowSums(as.matrix(removeSparseTerms(onegram_tdm, 0.99))), decreasing = TRUE)
+
+
+
+onegram_dt = data.frame(word = names(freq), freq = freq)
+dfsub <- subset(onegram_dt[1:20,])
+ggplot(dfsub, aes(x = reorder(word, -freq), y = freq)) +
+        geom_bar(stat = "identity") + 
+        labs(x = "Words", y = "Count", title = "Top 20 Words") + 
+        theme(axis.text.x = element_text(angle = 45, hjust = 1), plot.title = element_text(hjust = 0.5))
+
+```
+
+```{r}
+TwoGramTokenizer <- function(x) NGramTokenizer(x, Weka_control(min = 2, max = 2))
+
+twogram_dt = data.frame(word = names(freq), freq = freq)
+dfsub <- subset(twogram_dt[1:20,])
+ggplot(dfsub, aes(x = reorder(word, -freq), y = freq)) +
+        geom_bar(stat = "identity") + 
+        labs(x = "Words", y = "Count", title = "Top 2-grams") + 
+        theme(axis.text.x = element_text(angle = 45, hjust = 1), plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
+ThreeGramTokenizer <- function(x) NGramTokenizer(x, Weka_control(min = 3, max = 3))
+threegram_df = data.frame(word = names(freq), freq = freq)
+dfsub <- subset(threegram_df[1:20,])
+ggplot(dfsub, aes(x = reorder(word, -freq), y = freq)) +
+        geom_bar(stat = "identity") + 
+        labs(x = "Words", y = "Count", title = "Top 3-grams") + 
+        theme(axis.text.x = element_text(angle = 45, hjust = 1), plot.title = element_text(hjust = 0.5))
+```
